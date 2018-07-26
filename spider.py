@@ -51,8 +51,8 @@ def get_products(html):
         for item in items:
             dict = {
                 '名称': item.select_one('.pic .J_ItemPic').attrs['alt'],
-                '链接': 'http:' + item.select_one('.J_ClickStat').attrs['data-href'],
-                '图片': 'http:' + item.select_one('.pic-link .img').attrs['data-src'],
+                '链接': 'https:' + item.select_one('.J_ClickStat').attrs['data-href'],
+                '图片': 'https:' + item.select_one('.pic-link .img').attrs['data-src'],
                 '价格': item.select_one('.price').get_text().strip(),
                 '店铺': item.select_one('.shop').get_text().strip(),
                 '地区': item.select_one('.location').get_text(),

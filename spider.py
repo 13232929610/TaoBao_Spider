@@ -1,6 +1,6 @@
+import pymongo
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-# from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.common.exceptions import TimeoutException
@@ -9,6 +9,7 @@ from urllib.parse import quote
 
 
 keywords = 'iPhone'
+
 chrome_options = webdriver.ChromeOptions()
 chrome_options.add_argument('--headless')
 chrome_options.add_argument('--disable-gpu')
@@ -18,6 +19,8 @@ base_url = 'https://s.taobao.com/search?q='
 url = base_url + quote(keywords)
 driver.get(url)
 
+client = pymongo.MongoClient('localhost')
+db = client['Taobao']
 
 def index_page(page):
     print('正在请求第', page, '页')
@@ -37,7 +40,8 @@ def index_page(page):
         wait.until(EC.presence_of_element_located(
             (By.CSS_SELECTOR, '.m-itemlist')))
         print('正在抓取···')
-        get_products(driver.page_source)
+        dict = get_products(driver.page_source)
+        save_to_mongo(dict)
     except TimeoutException:
         print('请求第', page, '超时')
         print('正在重试···')
@@ -50,9 +54,12 @@ def get_products(html):
     try:
         if items:
             for item in items:
+                link = item.select_one('.J_ClickStat').attrs['data-href']
+                if link[:6] == 'https:':
+                    link = link[6:]
                 dict = {
                     '名称': item.select_one('.pic .J_ItemPic').attrs['alt'],
-                    '链接': 'https:' + item.select_one('.J_ClickStat').attrs['data-href'],
+                    '链接': 'https:' + link,
                     '图片': 'https:' + item.select_one('.pic-link .img').attrs['data-src'],
                     '价格': item.select_one('.price').get_text().strip(),
                     '店铺': item.select_one('.shop').get_text().strip(),
@@ -60,11 +67,20 @@ def get_products(html):
                     '付款人数': item.select_one('.deal-cnt').get_text()[:-3]
                    }
                 print(dict)
+                yield dict
     except Exception:
         print('爬取异常')
 
 
+def save_to_mongo(dict):
+    try:
+        if db['products'].insert(dict):
+            print('存储到MongoDB成功')
+    except Exception:
+        print('存储到MongoDB失败')
+
+
 if __name__ == '__main__':
-    for page in range(1, 21):
+    for page in range(1, 101):
         index_page(page)
     driver.close()
